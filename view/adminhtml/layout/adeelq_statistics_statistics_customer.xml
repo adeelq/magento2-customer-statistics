@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceContainer name="content">
+            <block
+                class="Adeelq\CustomerStatistics\Block\Adminhtml\Statistics"
+                name="adeelq_statistics_customer"
+                template="Adeelq_CustomerStatistics::statistics.phtml"
+            />
+        </referenceContainer>
+    </body>
+</page>

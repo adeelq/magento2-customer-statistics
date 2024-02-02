@@ -1,0 +1,30 @@
+<?php
+use Adeelq\CustomerStatistics\Block\Adminhtml\Statistics;
+/** @var Statistics $block */
+?>
+<div class="admin__data-grid-wrap admin__data-grid-wrap-static">
+    <table class="data-grid" id="adeelq-customer-statistics">
+        <thead>
+            <tr>
+                <?php foreach ($block->getTableHeaders() as $header): ?>
+                    <th class="data-grid-th">
+                        <span>
+                            <?= __($block->escaper->escapeHtml($header)) ?>
+                        </span>
+                    </th>
+                <?php endforeach; ?>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($block->getTableRows() as $row): ?>
+                <tr>
+                    <?php foreach ($row as $column): ?>
+                        <td>
+                            <?= $block->escaper->escapeHtml($column) ?>
+                        </td>
+                    <?php endforeach; ?>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
