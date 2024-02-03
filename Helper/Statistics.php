@@ -2,42 +2,18 @@
 
 namespace Adeelq\CustomerStatistics\Helper;
 
-use Magento\Backend\Model\UrlInterface;
 use Magento\Customer\Model\ResourceModel\Customer\Collection;
 use Magento\Customer\Model\ResourceModel\Customer\CollectionFactory;
 use Magento\Framework\DB\Sql\Expression;
-use Magento\Framework\Intl\DateTimeFactory;
-use Magento\Framework\Stdlib\DateTime\Timezone;
-use Magento\Store\Model\StoreManagerInterface;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\DB\Sql\ExpressionFactory;
-use Throwable;
 
 class Statistics
 {
     /**
-     * @var Timezone
-     */
-    private Timezone $timezoneConverter;
-
-    /**
-     * @var DateTimeFactory
-     */
-    private DateTimeFactory $dateTimeFactory;
-
-    /**
-     * @var UrlInterface
-     */
-    private UrlInterface $backendUrl;
-
-    /**
      * @var CollectionFactory
      */
     private CollectionFactory $customerCollectionFactory;
-
-    /**
-     * @var StoreManagerInterface
-     */
-    private StoreManagerInterface $storeManager;
 
     /**
      * @var ExpressionFactory
@@ -45,47 +21,33 @@ class Statistics
     private ExpressionFactory $expressionFactory;
 
     /**
-     * @param UrlInterface $backendUrl
-     * @param Timezone $timezoneConverter
-     * @param DateTimeFactory $dateTimeFactory
      * @param CollectionFactory $customerCollectionFactory
-     * @param StoreManagerInterface $storeManager
      * @param ExpressionFactory $expressionFactory
      */
     public function __construct(
-        UrlInterface $backendUrl,
-        Timezone $timezoneConverter,
-        DateTimeFactory $dateTimeFactory,
         CollectionFactory $customerCollectionFactory,
-        StoreManagerInterface $storeManager,
         ExpressionFactory $expressionFactory
     ) {
-        $this->backendUrl = $backendUrl;
-        $this->timezoneConverter = $timezoneConverter;
-        $this->dateTimeFactory = $dateTimeFactory;
         $this->customerCollectionFactory = $customerCollectionFactory;
-        $this->storeManager = $storeManager;
         $this->expressionFactory = $expressionFactory;
     }
 
     /**
      * @param int $customerId
+     * @param array $storeIds
      *
      * @return array
+     *
+     * @throws LocalizedException
      */
-    public function getCustomerStats(int $customerId): array
+    public function getCustomerStats(int $customerId, array $storeIds): array
     {
-        try {
-            $collection = $this->customerCollectionFactory->create()
-                ->addAttributeToSelect('*')
-                ->addAttributeToFilter('entity_id', $customerId)
-                ->addAttributeToFilter('store_id', ['in' => array_keys($this->storeManager->getStores())]);
-            $this->addDynamicAttributes($collection);
-            $collection->getSelect()->group(['e.entity_id']);
-            return $collection->exportToArray();
-        } catch (Throwable) {
-            return [];
-        }
+        $collection = $this->customerCollectionFactory->create()
+            ->addAttributeToSelect('*')
+            ->addAttributeToFilter('entity_id', $customerId)
+            ->addAttributeToFilter('store_id', ['in' => $storeIds]);
+        $this->addDynamicAttributes($collection);
+        return $collection->getSize() ? $collection->getFirstItem()->getData() : [];
     }
 
     /**
@@ -96,15 +58,7 @@ class Statistics
     private function addDynamicAttributes(Collection $collection): void
     {
         $collection->getSelect()
-            ->columns($this->buildColumns($collection))
-            ->joinLeft(
-                ['sales' => $collection->getTable('sales_order')],
-                'e.entity_id = sales.customer_id',
-                [
-                    'total_orders_amount' => 'SUM(grand_total)',
-                    'average_orders_amount' => 'AVG(grand_total)'
-                ]
-            );
+            ->columns($this->buildColumns($collection));
     }
 
     /**
@@ -176,8 +130,27 @@ class Statistics
                         SELECT COUNT(*)
                         FROM %s
                         WHERE customer_id = e.entity_id
-                        GROUP BY customer_id
                         LIMIT 1
+                    )',
+                    $collection->getTable('sales_order')
+                )
+            ),
+            'total_orders_amount' => $this->getExpressionModel(
+                sprintf(
+                    '(
+                        SELECT SUM(grand_total)
+                        FROM %s
+                        WHERE customer_id = e.entity_id
+                    )',
+                    $collection->getTable('sales_order')
+                )
+            ),
+            'average_orders_amount' => $this->getExpressionModel(
+                sprintf(
+                    '(
+                        SELECT AVG(grand_total)
+                        FROM %s
+                        WHERE customer_id = e.entity_id
                     )',
                     $collection->getTable('sales_order')
                 )
@@ -185,11 +158,12 @@ class Statistics
             'most_used_payment_method' => $this->getExpressionModel(
                 sprintf(
                     '(
-                        SELECT op.method
+                        SELECT op.additional_information
                         FROM %s so
                         LEFT JOIN %s op ON op.parent_id = so.entity_id
                         WHERE so.customer_id = e.entity_id
                         GROUP BY op.method
+                        ORDER BY COUNT(op.additional_information) DESC
                         LIMIT 1
                     )',
                     $collection->getTable('sales_order'),
@@ -199,13 +173,85 @@ class Statistics
             'most_used_shipping_method' => $this->getExpressionModel(
                 sprintf(
                     '(
-                        SELECT e.shipping_description
+                        SELECT shipping_description
                         FROM %s
                         WHERE customer_id = e.entity_id
                         GROUP BY shipping_method
+                        ORDER BY COUNT(shipping_description) DESC
                         LIMIT 1
                     )',
                     $collection->getTable('sales_order')
+                )
+            ),
+            'active_shopping_cart?' => $this->getExpressionModel(
+                sprintf(
+                    '(
+                        SELECT is_active
+                        FROM %s
+                        WHERE customer_id = e.entity_id AND is_active = 1
+                        LIMIT 1
+                    )',
+                    $collection->getTable('quote')
+                )
+            ),
+            'shopping_cart_created_at' => $this->getExpressionModel(
+                sprintf(
+                    '(
+                        SELECT created_at
+                        FROM %s
+                        WHERE customer_id = e.entity_id AND is_active = 1
+                        LIMIT 1
+                    )',
+                    $collection->getTable('quote')
+                )
+            ),
+            'shopping_cart_modified_at' => $this->getExpressionModel(
+                sprintf(
+                    '(
+                        SELECT updated_at
+                        FROM %s
+                        WHERE customer_id = e.entity_id AND is_active = 1
+                        LIMIT 1
+                    )',
+                    $collection->getTable('quote')
+                )
+            ),
+            'products_in_shopping_cart' => $this->getExpressionModel(
+                sprintf(
+                    '(
+                        SELECT items_count
+                        FROM %s
+                        WHERE customer_id = e.entity_id AND is_active = 1
+                        LIMIT 1
+                    )',
+                    $collection->getTable('quote')
+                )
+            ),
+            'last_product_wished_at' => $this->getExpressionModel(
+                sprintf(
+                    '(
+                        SELECT wi.added_at
+                        FROM %s w
+                        LEFT JOIN %s wi ON wi.wishlist_id = w.wishlist_id
+                        WHERE w.customer_id = e.entity_id
+                        ORDER BY wi.added_at DESC
+                        LIMIT 1
+                    )',
+                    $collection->getTable('wishlist'),
+                    $collection->getTable('wishlist_item')
+                )
+            ),
+            'total_products_in_wishlist' => $this->getExpressionModel(
+                sprintf(
+                    '(
+                        SELECT COUNT(*)
+                        FROM %s w
+                        LEFT JOIN %s wi ON wi.wishlist_id = w.wishlist_id
+                        WHERE w.customer_id = e.entity_id
+                        LIMIT 1
+                    )',
+                    $collection->getTable('wishlist'),
+                    $collection->getTable('wishlist_item')
                 )
             ),
             'last_product_reviewed_at' => $this->getExpressionModel(
@@ -218,20 +264,18 @@ class Statistics
                         ORDER BY r.created_at DESC
                         LIMIT 1
                     )',
-                    $collection->getTable('review'), $collection->getTable('review_detail')
+                    $collection->getTable('review'),
+                    $collection->getTable('review_detail')
                 )
             ),
             'total_products_reviewed' => $this->getExpressionModel(
                 sprintf(
                     '(
                         SELECT COUNT(*)
-                        FROM %s r
-                        LEFT JOIN %s rd ON rd.review_id = r.review_id
-                        WHERE rd.customer_id = e.entity_id
-                        GROUP BY customer_id
+                        FROM %s
+                        WHERE customer_id = e.entity_id
                         LIMIT 1
                     )',
-                    $collection->getTable('review'),
                     $collection->getTable('review_detail')
                 )
             )
@@ -246,24 +290,5 @@ class Statistics
     private function getExpressionModel(string $expressionString): Expression
     {
         return $this->expressionFactory->create(['expression' => $expressionString]);
-    }
-
-    /**
-     * @param array $timestamps
-     *
-     * @return array
-     */
-    private function convertTimestampsToDatetime(array $timestamps): array
-    {
-        try {
-            $configTimeZone = $this->timezoneConverter->getConfigTimezone();
-            $storeDateTime = $this->dateTimeFactory->create('now', new \DateTimeZone($configTimeZone));
-            foreach ($timestamps as &$timestamp) {
-                $timestamp = $storeDateTime->setTimestamp($timestamp)->format('F d Y H:i:s');
-            }
-            return $timestamps;
-        } catch (Throwable) {
-            return $timestamps;
-        }
     }
 }

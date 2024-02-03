@@ -2,12 +2,18 @@
 use Adeelq\CustomerStatistics\Block\Adminhtml\Statistics;
 /** @var Statistics $block */
 ?>
+<h4>
+    Customer: <a href="<?= $block->escaper->escapeUrl($block->getCustomerLink())?>" target="_blank">
+        <?= $block->escaper->escapeHtml($block->getCustomerName()) ?></a> |
+    Website: <?= $block->escaper->escapeHtml($block->getWebsiteName()) ?> |
+    Currency: <?= $block->escaper->escapeHtml($block->getWebsiteCurrency()) ?>
+</h4>
 <div class="admin__data-grid-wrap admin__data-grid-wrap-static">
     <table class="data-grid" id="adeelq-customer-statistics">
         <thead>
             <tr>
                 <?php foreach ($block->getTableHeaders() as $header): ?>
-                    <th class="data-grid-th">
+                    <th class="data-grid-th" style="width: 50%">
                         <span>
                             <?= __($block->escaper->escapeHtml($header)) ?>
                         </span>
@@ -16,13 +22,16 @@ use Adeelq\CustomerStatistics\Block\Adminhtml\Statistics;
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($block->getTableRows() as $row): ?>
+            <?php foreach ($block->getTableRows() as $name => $value): ?>
                 <tr>
-                    <?php foreach ($row as $column): ?>
-                        <td>
-                            <?= $block->escaper->escapeHtml($column) ?>
-                        </td>
-                    <?php endforeach; ?>
+                    <td>
+                        <strong>
+                            <?= $block->escaper->escapeHtml(__($name)) ?>
+                        </strong>
+                    </td>
+                    <td>
+                        <?= $block->escaper->escapeHtml($value) ?>
+                    </td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
