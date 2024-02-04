@@ -2,7 +2,7 @@
     "name": "adeelq/magento2-customer-statistics",
     "description": "A module which adds grid in Magento admin backOffice for viewing customer lifetime statistics.",
     "type": "magento2-module",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "license": "MPL-2.0",
     "authors": [
         {
@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "adeelq/magento2-core-module": ">=1.0",
+        "adeelq/magento2-core-module": "1.0.2",
         "magento/framework": ">=101 <104",
         "magento/module-review": ">=100 <102",
         "magento/module-sales": ">=100 <104",

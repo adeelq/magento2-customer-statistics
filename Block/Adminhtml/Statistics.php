@@ -2,7 +2,6 @@
 
 namespace Adeelq\CustomerStatistics\Block\Adminhtml;
 
-use Exception;
 use IntlDateFormatter;
 use Magento\Backend\Block\Widget\Container;
 use Magento\Backend\Block\Widget\Context;
@@ -128,7 +127,8 @@ class Statistics extends Container
     {
         try {
             return ['Statistic Name', 'Statistic Value'];
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->statisticsHelper->logError(__METHOD__, $e);
             return [];
         }
     }
@@ -151,7 +151,8 @@ class Statistics extends Container
                 $processedArr[$this->getKey($name)] = $value ? $this->getValue($name, $value) : '';
             }
             return $processedArr;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->statisticsHelper->logError(__METHOD__, $e);
             return [];
         }
     }
@@ -165,7 +166,8 @@ class Statistics extends Container
         try {
             $customer = $this->getCustomer();
             return sprintf('%s %s', $customer->getFirstname(), $customer->getLastname());
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->statisticsHelper->logError(__METHOD__, $e);
             return '';
         }
     }
@@ -185,7 +187,8 @@ class Statistics extends Container
     {
         try {
             return $this->getWebsite($this->getCustomer()->getWebsiteId())->getName();
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->statisticsHelper->logError(__METHOD__, $e);
             return '';
         }
     }
@@ -197,7 +200,8 @@ class Statistics extends Container
     {
         try {
             return $this->getWebsite($this->getCustomer()->getWebsiteId())->getBaseCurrencyCode();
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->statisticsHelper->logError(__METHOD__, $e);
             return '';
         }
     }
@@ -207,22 +211,25 @@ class Statistics extends Container
      * @param string $value
      *
      * @return float|string
-     *
-     * @throws Exception
      */
     private function getValue(string $name, string $value): float|string
     {
-        if ($name === 'active_shopping_cart?') {
-            $value = __('Yes');
-        } elseif ($name === 'most_used_payment_method') {
-            $decodedArr = json_decode($value, true);
-            $value = ! empty($decodedArr['method_title']) ? $decodedArr['method_title'] : '';
-        } elseif (in_array($name, self::DATE_TIME_COLUMNS) && $value) {
-            $value = $this->convertDatetime($value);
-        } elseif (is_numeric($value)) {
-            $value = round($value, 2);
+        try {
+            if ($name === 'active_shopping_cart?') {
+                $value = __('Yes');
+            } elseif ($name === 'most_used_payment_method') {
+                $decodedArr = json_decode($value, true);
+                $value = ! empty($decodedArr['method_title']) ? $decodedArr['method_title'] : '';
+            } elseif (in_array($name, self::DATE_TIME_COLUMNS) && $value) {
+                $value = $this->convertDatetime($value);
+            } elseif (is_numeric($value)) {
+                $value = round($value, 2);
+            }
+            return $value ?: '';
+        } catch (Throwable $e) {
+            $this->statisticsHelper->logError(__METHOD__, $e);
+            return '';
         }
-        return $value ?: '';
     }
 
     /**
@@ -276,12 +283,15 @@ class Statistics extends Container
      * @param string $dateTime
      *
      * @return string
-     *
-     * @throws Exception
      */
     private function convertDatetime(string $dateTime): string
     {
-        $configTimeZone = $this->timezoneConverter->getConfigTimezone('website', $this->getCustomer()->getWebsiteId());
-        return $this->formatDate($dateTime, IntlDateFormatter::MEDIUM, true, $configTimeZone);
+        try {
+            $configTimeZone = $this->timezoneConverter->getConfigTimezone('website', $this->getCustomer()->getWebsiteId());
+            return $this->formatDate($dateTime, IntlDateFormatter::MEDIUM, true, $configTimeZone);
+        } catch (Throwable $e) {
+            $this->statisticsHelper->logError(__METHOD__, $e);
+            return $dateTime;
+        }
     }
 }

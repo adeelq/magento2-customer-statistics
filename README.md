@@ -1,7 +1,7 @@
 Magento 2 - Customer Statistics
  ======
  
-[![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](../CoreConfigDataViewer/LICENSE)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](LICENSE)
 
 A module which adds grid in Magento admin backOffice for viewing customer lifetime statistics. User can view the statistics for each individual customer from associated website in table format.
 
